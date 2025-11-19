@@ -35,7 +35,7 @@ class User:
 
 # log输出的等级 (logging.[DEBUG,INFO,WARNING,ERROR,CRITICAL])
 #       []内的为可选列表，推荐logging.INFO)
-LOG_GRADE = logging.INFO
+LOG_GRADE = logging.DEBUG
 # 用户列表，每一个元素是用户对象，具体内容请参考class User
 # 本处所给的是四个样例，实际使用时请根据实际填写
 USER_LIST = [
@@ -43,7 +43,6 @@ USER_LIST = [
     User(259000001, "诸天神佛"),
     User(259000003, "保我代码", "new_password"),
     User(259000004, "不出BUG", latitude=118.227, longitude=31.668),
-
 ]
 # 单次尝试签到最大尝试次数
 MAX_RETRIES = 4
@@ -335,24 +334,33 @@ def sign_in_by_step(user: User, step: int, debug: bool = False) -> dict:
     # 开启时间窗口
     if step == 3:
         logger.info(f"开始为 {user.username}({user.student_Id}) 开启签到时间窗口")
-        apiLog_result = requests.post(WEB_DICT['apiLog_api'], headers=generate_header(user,WEB_DICT['apiLog_api'])).json()
-        logger.debug(f"{user.username}({user.student_Id}) 开启签到时间窗口返回信息 {apiLog_result}")
+        # apiLog_result = requests.post(WEB_DICT['apiLog_api'], headers=generate_header(user,WEB_DICT['apiLog_api'])).json()
+        apiLog_result = requests.post(WEB_DICT['apiLog_api'], headers=generate_header(user, WEB_DICT['apiLog_api']))
+        logger.debug(f"{user.username}({user.student_Id}) 开启签到时间窗口返回信息 {apiLog_result.text}")
+        # apiLog_result = apiLog_result.json()
 
-        if apiLog_result['code'] == 200:
+        # if apiLog_result['code'] == 200:
+        #     logger.info(f"为 {user.username}({user.student_Id}) 开启签到时间窗口成功")
+        #     return {'success': True, 'msg': '', 'step': step + 1}
+
+        if apiLog_result.status_code == 200:
             logger.info(f"为 {user.username}({user.student_Id}) 开启签到时间窗口成功")
             return {'success': True, 'msg': '', 'step': step + 1}
 
         else:
-            if (("请求未授权" in apiLog_result.get('msg'))
-                    or ("缺失身份信息" in apiLog_result.get('msg'))
-                    or ('鉴权失败' in apiLog_result.get('msg'))):
-                logger.warning(f"{user.username}({user.student_Id}) Token失效或未授权，将重试获取Token。")
-                user.token = ''
-                return {'success': False, 'msg': 'token失效', 'step': 0}
-            else:
-                logger.warning(
-                    f"{user.username}({user.student_Id}) 开启签到时间窗口时出现问题：{apiLog_result.get('msg')}")
-                return {'success': False, 'msg': apiLog_result.get('msg'), 'step': step}
+            # if (("请求未授权" in apiLog_result.get('msg'))
+            #         or ("缺失身份信息" in apiLog_result.get('msg'))
+            #         or ('鉴权失败' in apiLog_result.get('msg'))):
+            #     logger.warning(f"{user.username}({user.student_Id}) Token失效或未授权，将重试获取Token。")
+            #     user.token = ''
+            #     return {'success': False, 'msg': 'token失效', 'step': 0}
+            # else:
+            #     logger.warning(
+            #         f"{user.username}({user.student_Id}) 开启签到时间窗口时出现问题：{apiLog_result.get('msg')}")
+            #     return {'success': False, 'msg': apiLog_result.get('msg'), 'step': step}
+            logger.warning(
+                f"{user.username}({user.student_Id}) 开启签到时间窗口时出现问题")
+            return {'success': False, 'msg': "开启签到时间窗口时出现问题", 'step': step}
 
     # 进行晚寝签到
     if step == 4:
@@ -445,7 +453,7 @@ if __name__ == '__main__':
     with ThreadPoolExecutor(max_workers=max_workers) as executor:
         futures_to_user = {
             # 如需在非签到时间内测试可传入参数debug=True
-            executor.submit(sign_in, u, debug=False): u for u in USER_LIST
+            executor.submit(sign_in, u, debug=True): u for u in USER_LIST
         }
         for future in as_completed(futures_to_user):
             u = futures_to_user[future]
