@@ -11,6 +11,15 @@ from urllib.parse import urlparse
 import requests
 
 
+"""
+                更新日志
+2026年1月3日：
+  修改用户类可以直接传入md5加密之后的密码，通过is_encrypted属性选择。
+  将generate_sign更新为学校现行版本。
+  添加了多个随机UA及访问各接口前添加随机延时，模拟人工操作。
+"""
+
+
 @dataclass
 class User:
     # 学号(必须填写)
@@ -27,6 +36,8 @@ class User:
     token: str = None
     # 签到任务的内部Id(无需填写，实时获取)
     taskId: int = None
+    # 当前提供的密码是否为加密之后的
+    is_encrypted: int = 0
 
 
 ## *------------------------------------------------------* ##
@@ -39,10 +50,14 @@ LOG_GRADE = logging.DEBUG
 # 用户列表，每一个元素是用户对象，具体内容请参考class User
 # 本处所给的是四个样例，实际使用时请根据实际填写
 USER_LIST = [
-    User(259000000),
-    User(259000001, "诸天神佛"),
-    User(259000003, "保我代码", "new_password"),
-    User(259000004, "不出BUG", latitude=118.227, longitude=31.668),
+    # 使用参考
+    # User(259000000),
+    # User(259000001, "诸天神佛"),
+    # User(259000003, "保我代码", "new_password"),
+    # User(259000004, "不出BUG", latitude=118.227, longitude=31.668),
+
+    # 此处使用随机学号进行调试，实际情况请使用需要签到学生的学号
+    User(random.randint(259024000,259025000))
 ]
 # 单次尝试签到最大尝试次数
 MAX_RETRIES = 4
@@ -110,6 +125,15 @@ WEB_DICT = {
     "sign_in_result_api": f"{API_BASE_URL}/flySource-yxgl/dormSignStu/getWqdStudentPage"
                           "?taskId={taskId}&xhOrXm=&nowDate={date_str}&userDataType=student&current=1&size=100",
 }
+
+# 可选的UA头列表
+UA_LIST = [
+    "Mozilla/5.0 (Linux; Android 15; MIX Fold 4 Build/TKQ1.240502.001; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/128.0.6613.137 Mobile Safari/537.36 MicroMessenger/8.0.61.2660(0x28003D37) WeChat/arm64 Weixin NetType/WIFI Language/zh_CN ABI/arm64",
+    "Mozilla/5.0 (Linux; Android 15; LYA-AL10 Build/HUAWEILYA-AL10; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/128.0.6613.137 Mobile Safari/537.36 MicroMessenger/8.0.61.2660(0x28003D37) WeChat/arm64 Weixin NetType/5G Language/zh_CN ABI/arm64",
+    "Mozilla/5.0 (Linux; Android 15; SM-S938B Build/TP1A.240205.004; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/128.0.6613.137 Mobile Safari/537.36 MicroMessenger/8.0.61.2660(0x28003D37) WeChat/arm64 Weixin NetType/WIFI Language/zh_CN ABI/arm64",
+    "Mozilla/5.0 (iPhone; CPU iPhone OS 19_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148 MicroMessenger/8.0.61(0x18003D29) NetType/WIFI Language/zh_CN",
+    "Mozilla/5.0 (iPhone; CPU iPhone OS 19_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148 MicroMessenger/8.0.61(0x18003D29) NetType/5G Language/zh_CN",
+]
 ## *------------------------------------------------------* ##
 
 
@@ -138,16 +162,15 @@ def generate_sign(url, token) -> str:
     :param token: user所持有的令牌token
     :return: 指定的网页令牌
     """
+    if not token:
+        return None
     parsed_url = urlparse(url)
     api = parsed_url.path + "?sign="
     timestamp = int(time.time() * 1000)
-    if not token:
-        return None
-    token_prefix = token[:10]
-    inner = f"{timestamp}{token_prefix}"
+    inner = f"{timestamp}{token}"
     inner_hash = hashlib.md5(inner.encode("utf-8")).hexdigest()
-    raw_string = f"{api}{inner_hash}"
-    final_hash = hashlib.md5(raw_string.encode("utf-8")).hexdigest()
+    raw = f"{api}{inner_hash}"
+    final_hash = hashlib.md5(raw.encode("utf-8")).hexdigest()
     encoded_time = base64.b64encode(str(timestamp).encode("utf-8")).decode("utf-8")
     return f"{final_hash}1.{encoded_time}"
 
@@ -181,7 +204,7 @@ def generate_header(user: User, url: str = None) -> dict:
     :return: 访问所需的header
     """
     header = {
-        'User-Agent': "Mozilla/5.0 (Linux; Android 18; MI 9 Build/RKQ1.200826.002; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/89.0.4389.105 Mobile Safari/537.36 MicroMessenger/8.0.30.2210(0x28001E3A) NetType/WIFI Language/zh_CN",
+        'User-Agent': random.choice(UA_LIST),
         'authorization': "Basic Zmx5c291cmNlX3dpc2VfYXBwOkRBNzg4YXNkVURqbmFzZF9mbHlzb3VyY2VfZHNkYWREQUlVaXV3cWU=",
         'Content-Type': "application/json;charset=UTF-8",
         'X-Requested-With': "com.tencent.mm",
@@ -205,7 +228,7 @@ def generate_params(user: User):
     return {
         'tenantId': '000000',
         'username': user.student_Id,
-        'password': password_md5(user.password),
+        'password': user.password if user.is_encrypted else password_md5(user.password),
         'type': 'account',
         'grant_type': 'password',
         'scope': 'all'
@@ -277,7 +300,7 @@ def sign_in_by_step(user: User, step: int, debug: bool = False) -> dict:
 
         else:
             error_desc = token_result.get('error_description','未知错误')
-            if "Bad credentials" in error_desc: error_desc = "密码错误"
+            if "Bad credentials" in error_desc or "用户名或密码错误" in error_desc: error_desc = "密码错误"
             logger.error(f"为 {user.student_Id} 获取token时，出现错误：{error_desc}")
             return {'success': False, 'msg': error_desc, 'step': -1}
 
@@ -348,16 +371,6 @@ def sign_in_by_step(user: User, step: int, debug: bool = False) -> dict:
             return {'success': True, 'msg': '', 'step': step + 1}
 
         else:
-            # if (("请求未授权" in apiLog_result.get('msg'))
-            #         or ("缺失身份信息" in apiLog_result.get('msg'))
-            #         or ('鉴权失败' in apiLog_result.get('msg'))):
-            #     logger.warning(f"{user.username}({user.student_Id}) Token失效或未授权，将重试获取Token。")
-            #     user.token = ''
-            #     return {'success': False, 'msg': 'token失效', 'step': 0}
-            # else:
-            #     logger.warning(
-            #         f"{user.username}({user.student_Id}) 开启签到时间窗口时出现问题：{apiLog_result.get('msg')}")
-            #     return {'success': False, 'msg': apiLog_result.get('msg'), 'step': step}
             logger.warning(
                 f"{user.username}({user.student_Id}) 开启签到时间窗口时出现问题")
             return {'success': False, 'msg': "开启签到时间窗口时出现问题", 'step': step}

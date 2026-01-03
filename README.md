@@ -9,7 +9,7 @@
 
 为了方便不熟悉代码的同学，本项目已部署并提供了一个公共的 Web 服务。你只需在网页上提交一次信息，系统便会为你每日自动签到。
 
-*   **访问地址**: **[wqqd.spance.dpdns.org](http://wqqd.spance.dpdns.org )**
+*   **访问地址**: ~~**[wqqd.spance.dpdns.org](http://wqqd.spance.dpdns.org )**~~ (为了省钱，前端页面已关闭，下学期再开)
 *   **账号**: 你的学号
 *   **密码**: 你的考勤系统密码（与信息门户密码一致）
 
@@ -77,7 +77,7 @@ USER_LIST = [
 **注意**:
 *   `student_Id` (学号) 是**必填项**。
 *   如果你的考勤系统密码是初始密码 `Ahgydx@920`，则无需填写 `password` 字段。
-*   `latitude` (纬度) 和 `longitude` (经度) 默认为校内地址，通常无需修改。
+*   `latitude` (纬度) 和 `longitude` (经度) 默认为校内地址，但仍建议在定义用户的时候修改为自身宿舍的经纬度。
 
 ### 4. 运行脚本
 
@@ -95,7 +95,7 @@ python main.py
 
 *   **对于 Linux/macOS**: 使用 `crontab`。
 *   **对于 Windows**: 使用 "任务计划程序"。
-*   **使用 GitHub Actions**: Fork 本仓库，利用 GitHub Actions 的定时触发功能，实现云端免费、自动化的每日签到。
+*   **使用 GitHub Actions**: Fork 本仓库，利用 GitHub Actions 的定时触发功能，实现云端免费、自动化的每日签到。(未使用过此方式)
 
 ## ⚠️ 免责声明
 
